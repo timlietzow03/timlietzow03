@@ -1,56 +1,68 @@
-"""Shared look for every profile SVG: one font, one panel, a dark and a light palette.
+"""Shared createtim visual system: Sakura (light) and Nightbloom (dark) palettes.
 
-Scripts draw with the dark colours; write() saves that as img/<name>-dark.svg and swaps
-each dark hex for its light partner to get img/<name>-light.svg. The README picks one
-per viewer via <picture> + prefers-color-scheme.
+Scripts draw using the Nightbloom (dark) tokens; write() saves img/<name>-dark.svg
+and swaps each dark hex for its Sakura (light) partner to create img/<name>-light.svg.
+The README picks one per viewer via <picture> + prefers-color-scheme.
 """
 
 import os
 
-FONT = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+FONT = "Inter,system-ui,-apple-system,'Segoe UI',sans-serif"
+SERIF = "Georgia,'Times New Roman','Noto Serif',serif"
+MONO = "ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace"
+
 DARK = {
-    "bg": "#0d1117",
-    "border": "#30363d",
-    "node": "#161b22",
-    "fg": "#c9d1d9",
-    "bright": "#e6edf3",
-    "muted": "#8b949e",
-    "dim": "#484f58",
-    "key": "#58a6ff",
-    "accent": "#39d353",
-    "danger": "#f85149",
+    "bg": "#181122",      # Nightbloom background
+    "node": "#231934",    # Card / inner surface
+    "border": "#3d2c52",  # Subtle plum border
+    "bright": "#f4ebf3",  # Primary headline ink
+    "fg": "#d8c8d6",      # Body ink
+    "muted": "#a78fa4",   # Muted copy
+    "dim": "#6e5873",     # Axes & grid lines
+    "key": "#ef8ab8",     # Sakura pink (--brand)
+    "rose": "#c95f92",    # Deep rose (--accent)
+    "petal": "#f7b8d0",   # Soft petal pink
+    "gold": "#f0c56a",    # Stamen gold (--stamen)
+    "accent": "#7fd4a8",  # Online mint green (--ok-ink)
+    "danger": "#f85149",  # Offline red
 }
 LIGHT = {
-    "bg": "#f6f8fa",
-    "border": "#d0d7de",
-    "node": "#ffffff",
-    "fg": "#1f2328",
-    "bright": "#0b0d10",
-    "muted": "#59636e",
-    "dim": "#8c959f",
-    "key": "#0969da",
-    "accent": "#1a7f37",
-    "danger": "#cf222e",
+    "bg": "#faf9f7",      # Warm Sakura paper
+    "node": "#f3f0ed",    # Soft warm surface
+    "border": "#e4dce1",  # Hairline border
+    "bright": "#231c20",  # Deep anthracite ink
+    "fg": "#4b4247",      # Soft ink
+    "muted": "#6b6166",   # Muted warm grey
+    "dim": "#9a8f94",     # Axes & grid lines
+    "key": "#b22e69",     # Deep sakura (--brand-700)
+    "rose": "#e0518c",    # Vibrant sakura (--brand)
+    "petal": "#f2a3c8",   # Light petal pink
+    "gold": "#d99a2b",    # Stamen gold (--stamen)
+    "accent": "#3d8a64",  # Online green (--ok-ink)
+    "danger": "#cf222e",  # Offline red
 }
+
 # The swap is a plain text replace, so no dark hex may repeat or reappear as a light one.
 assert len(set(DARK.values())) == len(DARK) and not set(DARK.values()) & set(LIGHT.values())
 
-BG, BORDER, NODE = DARK["bg"], DARK["border"], DARK["node"]
-FG, BRIGHT, MUTED, DIM = DARK["fg"], DARK["bright"], DARK["muted"], DARK["dim"]
-KEY, ACCENT, DANGER = DARK["key"], DARK["accent"], DARK["danger"]
-WIDTH = 860  # every full-width panel, so they line up in the README
+BG, NODE, BORDER = DARK["bg"], DARK["node"], DARK["border"]
+BRIGHT, FG, MUTED, DIM = DARK["bright"], DARK["fg"], DARK["muted"], DARK["dim"]
+KEY, ROSE, PETAL, GOLD = DARK["key"], DARK["rose"], DARK["petal"], DARK["gold"]
+ACCENT, DANGER = DARK["accent"], DARK["danger"]
+
+WIDTH = 860
 OUT_DIR = "img"
 
 
-def esc(s):
-    # NBSP: Chromium collapses leading and repeated spaces despite xml:space.
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "\u00a0")
+def esc(s, nbsp=False):
+    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return s.replace(" ", "\u00a0") if nbsp else s
 
 
-def svg(w, h, body, framed=True, **attrs):
+def svg(w, h, body, framed=True, rx=14, **attrs):
     extra = "".join(f' {k.replace("_", "-")}="{v}"' for k, v in attrs.items())
     frame = (
-        f'<rect x="0.5" y="0.5" width="{w - 1:.0f}" height="{h - 1:.0f}" rx="8" '
+        f'<rect x="0.5" y="0.5" width="{w - 1:.0f}" height="{h - 1:.0f}" rx="{rx}" '
         f'fill="{BG}" stroke="{BORDER}"/>'
     ) if framed else ""
     return (

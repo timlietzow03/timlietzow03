@@ -1,70 +1,87 @@
-"""header.svg: types `whoami`, prints who I am, then idles on a blinking cursor.
+"""header.svg: createtim-styled hero card with brand mark and Hase & Igel demand forecast."""
 
-SMIL, not CSS: GitHub plays it, and headless Chrome renders it in screenshots. Every
-animation only hides things during the first moments, so a renderer without SMIL
-still shows the finished terminal instead of an empty panel.
-"""
+from theme import BG, BORDER, BRIGHT, DIM, FG, GOLD, KEY, MONO, MUTED, NODE, ROSE, SERIF, WIDTH, esc, svg, write
 
-from theme import ACCENT, BRIGHT, FG, MUTED, WIDTH, esc, svg, write
-
-HEIGHT = 172
-PAD = 24
-CW = 9  # px per glyph; textLength pins every mono run to it so the cursor math holds
-USER, REST = "tim@github", " ~ $ "
-COMMAND = "whoami"
-NAME = "Tim Lietzow"
-TAGLINE = "Data science, AI automation and custom web apps from Buxtehude."
-TYPE_START, TYPE_STEP = 0.6, 0.09  # s
-ENTER = 1.4  # s: the output appears
+HEIGHT = 230
 OUT = "header"
 
 
-def mono(x, y, s, fill):
-    return (
-        f'<text x="{x}" y="{y}" fill="{fill}" textLength="{len(s) * CW}" '
-        f'lengthAdjust="spacingAndGlyphs">{esc(s)}</text>'
-    )
-
-
-def prompt(y):
-    return mono(PAD, y, USER, ACCENT) + mono(PAD + len(USER) * CW, y, REST, FG)
-
-
 def main():
-    x_cmd = PAD + len(USER + REST) * CW
-    y1, y2, y3, y4 = 48, 88, 116, 150
+    # Actual sales curve (x: 498 -> 675, y: 160 -> 118)
+    actual_pts = [
+        (498, 160), (512, 152), (526, 139), (540, 143), (554, 126),
+        (568, 131), (582, 112), (596, 119), (610, 102), (624, 104),
+        (638, 113), (652, 108), (664, 114), (675, 118),
+    ]
+    actual_d = "M " + " L ".join(f"{x},{y}" for x, y in actual_pts)
 
-    # typing: the clip grows one glyph per step; the cursor rides its right edge
-    widths = [0] + [k * CW for k in range(1, len(COMMAND) + 1)]
-    times = [0.0] + [TYPE_START + k * TYPE_STEP for k in range(len(COMMAND))]
-    key_times = ";".join(f"{t / times[-1]:.4f}" for t in times)
-    typing = (
-        f'calcMode="discrete" keyTimes="{key_times}" dur="{times[-1]:.2f}s" '
-        f'fill="freeze"'
+    # Forecast curve (x: 675 -> 812, y: 118 -> 96) and 80% uncertainty band
+    fc_pts = [
+        (675, 118), (692, 122), (710, 125), (728, 124),
+        (746, 120), (764, 114), (782, 106), (798, 100), (812, 96),
+    ]
+    band_top = [
+        (675, 110), (692, 111), (710, 111), (728, 108),
+        (746, 102), (764, 94), (782, 85), (798, 78), (812, 74),
+    ]
+    band_bot = [
+        (812, 118), (798, 122), (782, 127), (764, 134),
+        (746, 138), (728, 140), (710, 139), (692, 133), (675, 126),
+    ]
+    forecast_d = "M " + " L ".join(f"{x},{y}" for x, y in fc_pts)
+    band_d = "M " + " L ".join(f"{x},{y}" for x, y in (band_top + band_bot)) + " Z"
+
+    left_col = (
+        f'<rect x="32" y="28" width="28" height="28" rx="8" fill="{ROSE}"/>'
+        f'<text x="46" y="47" fill="#ffffff" font-size="14" font-weight="800" text-anchor="middle">c</text>'
+        f'<text x="69" y="47" font-size="15.5" font-weight="700">'
+        f'<tspan fill="{BRIGHT}">create</tspan><tspan fill="{KEY}">tim</tspan>'
+        f'<tspan fill="{DIM}" font-weight="400" font-size="13"> · </tspan>'
+        f'<tspan fill="{MUTED}" font-weight="500" font-size="13">Data Science · AI · Buxtehude</tspan>'
+        f'</text>'
+        f'<text x="32" y="84" fill="{MUTED}" font-size="14">Moin, I&#39;m</text>'
+        f'<text x="32" y="118" fill="{KEY}" font-family="{SERIF}" font-size="34" font-weight="700">'
+        f'{esc("Tim Lietzow")}</text>'
+        f'<text x="32" y="152" fill="{FG}" font-size="14.5">'
+        f'{esc("Data science, demand forecasting & custom web design")}</text>'
+        f'<text x="32" y="174" fill="{FG}" font-size="14.5">'
+        f'{esc("from Buxtehude — helping businesses plan ahead and")}</text>'
+        f'<text x="32" y="196" fill="{FG}" font-size="14.5">'
+        f'{esc("automate routine work.")}</text>'
     )
 
-    body = (
-        f'<clipPath id="typed"><rect x="{x_cmd}" y="{y1 - 16}" width="{len(COMMAND) * CW}" height="22">'
-        f'<animate attributeName="width" values="{";".join(map(str, widths))}" {typing}/>'
-        f'</rect></clipPath>'
-        + prompt(y1)
-        + f'<g clip-path="url(#typed)">{mono(x_cmd, y1, COMMAND, BRIGHT)}</g>'
-        # typing cursor: invisible without SMIL, so it never covers the command
-        + f'<rect x="{x_cmd}" y="{y1 - 13}" width="{CW}" height="17" fill="{FG}" opacity="0">'
-        f'<set attributeName="opacity" to="1" begin="0s" end="{ENTER}s"/>'
-        f'<animate attributeName="x" values="{";".join(str(x_cmd + w) for w in widths)}" {typing}/>'
-        f'</rect>'
-        # output and the next prompt: hidden until "enter", visible otherwise
-        + f'<g><set attributeName="opacity" to="0" begin="0s" end="{ENTER}s"/>'
-        f'<text x="{PAD}" y="{y2}" fill="{BRIGHT}" font-size="22" font-weight="700">{esc(NAME)}</text>'
-        f'<text x="{PAD}" y="{y3}" fill="{MUTED}">{esc(TAGLINE)}</text>'
-        + prompt(y4)
-        + f'<rect x="{x_cmd}" y="{y4 - 13}" width="{CW}" height="17" fill="{FG}">'
-        f'<animate attributeName="opacity" values="1;0" calcMode="discrete" dur="1.06s" '
-        f'begin="{ENTER}s" repeatCount="indefinite"/></rect></g>'
+    right_col = (
+        f'<rect x="480" y="24" width="356" height="182" rx="10" fill="{NODE}" stroke="{BORDER}"/>'
+        f'<text x="498" y="46" fill="{KEY}" font-size="11" font-weight="600" letter-spacing="0.04em">'
+        f'{esc("DEMAND FORECAST · BUXTEHUDE")}</text>'
+        f'<rect x="692" y="31" width="126" height="22" rx="11" fill="{BG}" stroke="{KEY}"/>'
+        f'<text x="755" y="46" fill="{KEY}" font-family="{SERIF}" font-style="italic" '
+        f'font-size="11.5" text-anchor="middle">{esc("Ick bün all hier!")}</text>'
+        # Grid lines + baseline + today marker
+        f'<path d="M498 82H816M498 114H816M498 146H816" fill="none" stroke="{BORDER}" stroke-width="1"/>'
+        f'<path d="M498 176H816" fill="none" stroke="{DIM}" stroke-width="1"/>'
+        f'<path d="M675 68V176" fill="none" stroke="{GOLD}" stroke-width="1.2" stroke-dasharray="3 3"/>'
+        # Forecast interval + actual & forecast lines
+        f'<path d="{band_d}" fill="{KEY}" fill-opacity="0.16"/>'
+        f'<path d="{actual_d}" fill="none" stroke="{BRIGHT}" stroke-width="2.2" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<path d="{forecast_d}" fill="none" stroke="{KEY}" stroke-width="2.2" '
+        f'stroke-dasharray="5 4" stroke-linecap="round"/>'
+        # Today marker & animated forecast endpoint
+        f'<circle cx="675" cy="118" r="3.8" fill="{GOLD}"/>'
+        f'<circle cx="812" cy="96" r="4" fill="{KEY}"/>'
+        f'<circle cx="812" cy="96" r="4" fill="none" stroke="{KEY}" opacity="0">'
+        f'<animate attributeName="r" values="4;11" dur="2.2s" repeatCount="indefinite"/>'
+        f'<animate attributeName="opacity" values="0.75;0" dur="2.2s" repeatCount="indefinite"/>'
+        f'</circle>'
+        # Axis labels
+        f'<text x="498" y="194" fill="{MUTED}" font-family="{MONO}" font-size="10.5">actual sales</text>'
+        f'<text x="675" y="194" fill="{GOLD}" font-family="{MONO}" font-size="10.5" text-anchor="middle">today</text>'
+        f'<text x="812" y="194" fill="{KEY}" font-family="{MONO}" font-size="10.5" text-anchor="end">'
+        f'{esc("forecast →")}</text>'
     )
-    assert PAD + len(TAGLINE) * CW <= WIDTH - PAD, "tagline runs past the panel"
-    write(OUT, svg(WIDTH, HEIGHT, body, font_size=15))
+
+    write(OUT, svg(WIDTH, HEIGHT, left_col + right_col))
 
 
 if __name__ == "__main__":

@@ -1,228 +1,204 @@
-"""neofetch.svg: a rotating shaded 3D ASCII cube on the left, the info card on the right.
+"""neofetch.svg: createtim 409-point cherry blossom scatter plot + profile info card."""
 
-GitHub strips <script> from READMEs but does play SMIL inside SVGs served via <img>,
-so every cube frame is baked in as a <g> and cycled with <animate calcMode="discrete">.
-One SVG instead of two side by side: a README <table> draws grey cell borders and
-insets its images, so they never line up with the full-width panels above and below.
-
-STATIC=1 emits a frozen frame for previewing. --demo runs the self-checks.
-"""
-
-import math
 import os
 
 from make_info_card import CARD_W, card
-from theme import FG, WIDTH, esc, svg, write
+from theme import DIM, GOLD, KEY, MONO, MUTED, PETAL, ROSE, WIDTH, esc, svg, write
 
-# --- cube geometry ---
-L = 1.45  # cube half-side length
-K2 = 6.0  # viewer distance
-SURF_STEP = 0.03
-RAMP = ".,-~:;=!*#$@"  # dark -> bright
-
-# --- light direction (normalized) ---
-_LX, _LY, _LZ = -0.35, 0.65, -0.67
-_LNORM = math.sqrt(_LX * _LX + _LY * _LY + _LZ * _LZ)
-LIGHT = (_LX / _LNORM, _LY / _LNORM, _LZ / _LNORM)
-
-# --- output grid ---
-RAW_COLS, RAW_ROWS = 76, 44
-TARGET_COLS, TARGET_ROWS = 50, 26  # 50 * 7 + 28 = 378 px; 378 + 482 = 860 == WIDTH
-CHAR_W, CHAR_H = 7.0, 14.0  # monospace cell: twice as tall as wide
-SPAN = 42  # approximate width span in columns
-FRAMES = 90
-DURATION = 9.0  # seconds per loop
-PAD = 14.0
+HEIGHT = 396
+PLOT_W = WIDTH - CARD_W  # 380 px
 OUT = "neofetch"
 
+# 409 data points grouped by ring (r0..r4): (class, cx, cy, r)
+BLOSSOM_RINGS = {
+    "r0": [
+        ("bd", 210.9, 182.9, 3.1), ("bd", 188.7, 184.1, 2.0), ("bd", 213.1, 176.9, 2.3), ("bd", 216.0, 172.9, 2.4),
+        ("bd", 184.1, 171.9, 3.1), ("bd", 217.2, 168.4, 2.4), ("bd", 200.0, 172.5, 1.6), ("bd", 220.9, 205.1, 3.1),
+        ("bd", 217.6, 181.0, 1.9), ("bd", 228.8, 206.4, 2.9), ("bd", 220.5, 177.5, 2.1), ("bd", 235.1, 206.6, 2.5),
+        ("bd", 222.7, 173.6, 3.0), ("bd", 226.2, 191.5, 1.6), ("bd", 200.5, 220.1, 3.1), ("bd", 219.8, 207.8, 2.6),
+        ("bd", 223.1, 209.4, 2.3), ("bd", 204.3, 231.2, 2.2), ("bd", 226.8, 211.4, 2.3), ("bd", 202.6, 233.9, 3.0),
+        ("bd", 216.2, 222.3, 1.6), ("bd", 180.1, 208.2, 2.5), ("bd", 176.3, 210.1, 2.3), ("bd", 173.3, 211.9, 2.7),
+        ("bd", 196.1, 232.2, 3.1), ("bd", 167.5, 215.7, 2.0), ("bd", 195.7, 235.7, 3.0), ("bd", 183.8, 222.3, 1.6),
+        ("bd", 186.8, 184.5, 3.0), ("bd", 179.0, 205.2, 2.5), ("bd", 181.3, 180.7, 2.0), ("bd", 173.5, 205.4, 2.8),
+        ("bd", 180.0, 176.9, 2.9), ("bd", 175.6, 174.7, 2.1), ("bd", 166.6, 207.7, 2.5), ("bd", 173.8, 191.5, 1.6),
+        ("bs", 214.3, 201.5, 2.4), ("bs", 217.5, 212.4, 2.4), ("bs", 204.6, 217.3, 2.4), ("bs", 195.4, 213.3, 2.4),
+        ("bs", 187.8, 209.8, 2.4), ("bs", 185.9, 201.1, 2.4), ("bs", 189.5, 192.3, 2.4), ("bs", 196.3, 182.2, 2.4),
+        ("bs", 203.4, 186.6, 2.4), ("bs", 216.8, 186.6, 2.4),
+    ],
+    "r1": [
+        ("bd", 218.9, 162.8, 2.3), ("bd", 179.8, 166.4, 2.1), ("bd", 222.6, 159.2, 2.0), ("bd", 179.0, 160.2, 3.2),
+        ("bd", 175.2, 152.0, 2.0), ("bd", 227.1, 146.2, 2.1), ("bd", 228.2, 141.3, 2.8), ("bd", 169.7, 140.5, 2.3),
+        ("bm", 230.2, 137.1, 3.2), ("bm", 233.8, 133.1, 2.9), ("bm", 168.5, 133.6, 2.6), ("bl", 216.6, 149.8, 1.2),
+        ("bl", 190.2, 146.0, 1.4), ("bl", 198.9, 137.2, 1.9), ("bl", 181.7, 144.6, 1.5), ("bd", 200.0, 155.3, 1.6),
+        ("bd", 200.0, 138.1, 1.6), ("bd", 237.9, 207.9, 2.4), ("bd", 242.9, 207.7, 2.9), ("bd", 233.6, 167.5, 2.1),
+        ("bd", 249.6, 208.6, 2.9), ("bd", 240.4, 160.7, 1.8), ("bd", 259.9, 209.8, 2.0), ("bd", 244.3, 155.7, 2.8),
+        ("bm", 269.6, 211.3, 2.0), ("bm", 250.1, 152.6, 2.3), ("bm", 275.4, 208.9, 2.0), ("bm", 253.0, 148.6, 3.2),
+        ("bl", 265.6, 196.4, 2.0), ("bl", 260.3, 185.6, 1.4), ("bl", 243.5, 197.3, 2.0), ("bd", 242.5, 186.2, 1.6),
+        ("bd", 258.9, 180.9, 1.6), ("bd", 205.3, 245.0, 3.0), ("bd", 207.2, 249.7, 3.1), ("bd", 245.0, 221.8, 2.8),
+        ("bd", 250.8, 225.5, 2.2), ("bd", 252.4, 227.1, 3.2), ("bd", 211.0, 265.9, 2.2), ("bd", 259.1, 231.0, 2.8),
+        ("bm", 212.9, 271.1, 3.0), ("bm", 261.5, 232.6, 2.9), ("bm", 265.6, 233.9, 3.1), ("bl", 221.8, 228.3, 1.7),
+        ("bl", 235.2, 251.0, 1.9), ("bl", 252.8, 246.6, 1.9), ("bl", 244.6, 230.5, 1.2), ("bd", 226.3, 236.2, 1.6),
+        ("bd", 236.4, 250.1, 1.6), ("bd", 194.3, 239.7, 2.0), ("bd", 159.7, 219.6, 2.5), ("bd", 155.4, 221.2, 2.9),
+        ("bd", 191.5, 256.1, 2.8), ("bd", 146.3, 228.4, 2.1), ("bd", 143.7, 230.0, 2.7), ("bd", 187.9, 264.1, 2.6),
+        ("bm", 139.8, 232.2, 1.8), ("bm", 186.6, 268.4, 1.9), ("bm", 132.8, 234.2, 3.2), ("bl", 163.4, 222.9, 1.2),
+        ("bl", 169.0, 262.5, 1.3), ("bl", 159.2, 255.2, 1.4), ("bl", 182.1, 244.3, 1.4), ("bd", 173.7, 236.2, 1.6),
+        ("bd", 163.6, 250.1, 1.6), ("bd", 171.0, 170.0, 2.7), ("bd", 167.9, 167.4, 2.3), ("bd", 150.2, 209.7, 2.2),
+        ("bd", 160.7, 161.7, 3.1), ("bd", 143.4, 208.0, 2.7), ("bd", 155.7, 158.0, 2.1), ("bd", 152.9, 152.8, 2.7),
+        ("bm", 131.2, 210.8, 2.5), ("bm", 146.9, 146.8, 2.2), ("bl", 161.2, 194.5, 1.9), ("bl", 137.7, 169.4, 1.9),
+        ("bl", 133.9, 197.1, 2.0), ("bd", 157.5, 186.2, 1.6), ("bd", 141.1, 180.9, 1.6),
+    ],
+    "r2": [
+        ("bm", 233.3, 126.3, 2.2), ("bm", 164.8, 128.0, 2.4), ("bm", 235.4, 123.8, 3.1), ("bm", 237.1, 118.5, 2.5),
+        ("bm", 241.1, 113.4, 2.8), ("bm", 241.7, 108.3, 2.2), ("bm", 242.3, 105.3, 2.1), ("bm", 154.9, 105.2, 2.3),
+        ("bm", 153.5, 102.0, 2.2), ("bl", 184.4, 124.8, 1.4), ("bl", 184.0, 119.1, 1.7), ("bl", 199.1, 131.1, 1.8),
+        ("bd", 200.0, 120.9, 1.6), ("bd", 200.0, 103.7, 1.6), ("bm", 257.5, 144.4, 2.8), ("bm", 285.7, 208.7, 2.8),
+        ("bm", 261.2, 141.1, 2.6), ("bm", 287.4, 209.8, 3.0), ("bm", 264.6, 138.2, 2.3), ("bm", 270.6, 136.1, 3.1),
+        ("bm", 299.7, 212.4, 3.1), ("bm", 275.5, 128.4, 2.1), ("bl", 270.6, 164.8, 1.2), ("bl", 283.9, 173.9, 1.9),
+        ("bl", 293.4, 155.4, 1.9), ("bl", 277.8, 172.1, 1.3), ("bd", 275.2, 175.6, 1.6), ("bd", 291.6, 170.2, 1.6),
+        ("bm", 215.6, 277.2, 2.2), ("bm", 268.8, 237.7, 2.7), ("bm", 214.8, 282.7, 2.0), ("bm", 273.9, 241.0, 2.5),
+        ("bm", 217.0, 289.2, 2.1), ("bm", 277.1, 244.4, 3.2), ("bm", 219.6, 292.4, 2.1), ("bm", 282.1, 248.6, 2.5),
+        ("bm", 285.9, 251.5, 2.7), ("bm", 218.9, 301.7, 2.6), ("bm", 289.2, 252.8, 3.0), ("bm", 222.8, 305.1, 2.4),
+        ("bm", 294.9, 254.1, 2.7), ("bl", 251.1, 253.4, 1.4), ("bl", 248.2, 255.3, 1.5), ("bd", 246.5, 264.0, 1.6),
+        ("bd", 256.6, 277.9, 1.6), ("bm", 131.0, 239.3, 2.4), ("bm", 186.3, 277.7, 2.3), ("bm", 124.5, 242.6, 2.3),
+        ("bm", 119.4, 243.6, 1.8), ("bm", 181.4, 286.8, 3.0), ("bm", 117.6, 248.4, 3.1), ("bm", 181.5, 290.5, 1.9),
+        ("bm", 112.7, 250.5, 2.3), ("bm", 180.8, 297.9, 2.7), ("bm", 179.3, 300.2, 3.1), ("bm", 103.4, 255.6, 2.7),
+        ("bm", 177.7, 308.3, 2.6), ("bl", 175.0, 284.9, 2.0), ("bl", 160.5, 289.1, 1.5), ("bd", 153.5, 264.0, 1.6),
+        ("bd", 143.4, 277.9, 1.6), ("bm", 142.4, 145.4, 2.4), ("bm", 119.4, 209.0, 2.6), ("bm", 137.1, 142.8, 2.8),
+        ("bm", 115.2, 208.7, 2.7), ("bm", 133.1, 136.6, 2.5), ("bm", 112.5, 209.4, 1.8), ("bm", 128.6, 137.2, 2.5),
+        ("bm", 127.7, 131.7, 2.1), ("bm", 101.4, 209.1, 1.9), ("bm", 93.4, 210.4, 3.1), ("bl", 121.8, 182.3, 1.9),
+        ("bl", 130.5, 179.1, 1.5), ("bl", 92.6, 200.3, 1.6), ("bd", 124.8, 175.6, 1.6), ("bd", 108.4, 170.2, 1.6),
+    ],
+    "r3": [
+        ("bm", 246.5, 95.4, 3.1), ("bm", 152.6, 93.8, 2.8), ("bm", 247.2, 89.1, 2.4), ("bm", 251.2, 84.9, 3.1),
+        ("bm", 152.0, 84.8, 3.2), ("bl", 149.2, 78.2, 2.0), ("bl", 248.9, 71.1, 2.0), ("bl", 150.5, 70.7, 2.7),
+        ("bl", 244.6, 69.7, 2.0), ("bl", 151.9, 68.9, 2.4), ("bl", 245.7, 62.9, 2.6), ("bl", 154.0, 65.0, 2.1),
+        ("bl", 229.1, 78.8, 1.5), ("bl", 185.2, 75.5, 1.7), ("bl", 228.3, 75.7, 1.7), ("bl", 226.6, 96.4, 2.0),
+        ("bl", 209.7, 63.1, 1.6), ("bl", 193.3, 63.0, 1.5), ("bl", 184.2, 64.0, 1.6), ("bm", 313.2, 210.5, 3.0),
+        ("bm", 285.2, 122.4, 2.8), ("bm", 318.6, 214.1, 2.2), ("bm", 290.1, 122.4, 1.9), ("bm", 291.9, 118.9, 2.1),
+        ("bm", 327.5, 212.9, 2.6), ("bm", 297.2, 116.4, 2.1), ("bl", 335.8, 205.6, 2.5), ("bl", 343.9, 200.7, 2.0),
+        ("bl", 316.5, 114.0, 3.1), ("bl", 315.0, 163.0, 1.6), ("bl", 322.8, 162.8, 1.8), ("bl", 312.1, 121.9, 1.5),
+        ("bl", 303.8, 127.7, 1.4), ("bl", 314.3, 135.2, 1.9), ("bl", 333.0, 182.3, 1.6), ("bm", 224.3, 309.6, 2.9),
+        ("bm", 297.1, 258.5, 2.3), ("bm", 304.3, 259.7, 2.5), ("bm", 305.9, 262.9, 2.5), ("bm", 231.6, 325.3, 3.0),
+        ("bm", 310.0, 265.9, 2.5), ("bl", 230.7, 327.8, 3.1), ("bl", 308.8, 270.3, 2.8), ("bl", 238.1, 331.2, 2.1),
+        ("bl", 311.9, 275.7, 1.9), ("bl", 316.6, 279.4, 2.2), ("bl", 245.3, 337.0, 1.8), ("bl", 261.9, 285.1, 1.7),
+        ("bl", 281.1, 283.7, 1.4), ("bl", 258.1, 327.8, 2.0), ("bl", 250.9, 323.4, 1.4), ("bl", 281.8, 296.3, 1.3),
+        ("bl", 248.2, 303.4, 1.7), ("bl", 275.2, 294.5, 1.7), ("bm", 102.3, 256.6, 3.1), ("bm", 96.5, 259.6, 2.3),
+        ("bm", 94.5, 262.6, 1.9), ("bm", 174.6, 319.3, 2.2), ("bm", 89.1, 267.0, 2.1), ("bl", 89.9, 272.1, 2.1),
+        ("bl", 168.5, 326.7, 2.2), ("bl", 165.1, 330.3, 2.6), ("bl", 83.9, 280.7, 3.0), ("bl", 158.4, 334.1, 2.5),
+        ("bl", 83.8, 284.0, 3.1), ("bl", 157.1, 337.5, 3.0), ("bl", 130.7, 307.5, 1.8), ("bl", 137.1, 286.0, 1.7),
+        ("bl", 92.4, 285.2, 1.2), ("bl", 99.8, 281.4, 1.8), ("bl", 142.2, 320.9, 1.9), ("bl", 166.2, 311.5, 1.6),
+        ("bm", 115.7, 125.9, 1.8), ("bm", 86.8, 214.0, 2.2), ("bm", 80.6, 211.5, 2.1), ("bm", 106.9, 119.8, 2.3),
+        ("bm", 77.1, 211.0, 3.1), ("bm", 103.0, 116.1, 3.0), ("bm", 70.3, 212.2, 2.8), ("bl", 67.2, 208.5, 2.4),
+        ("bl", 93.4, 115.8, 3.1), ("bl", 62.9, 207.3, 2.1), ("bl", 87.6, 115.4, 3.1), ("bl", 61.6, 202.8, 2.3),
+        ("bl", 82.5, 115.2, 2.8), ("bl", 87.6, 142.0, 1.9), ("bl", 75.9, 143.5, 1.5), ("bl", 86.4, 167.0, 2.0),
+    ],
+    "r4": [
+        ("bl", 244.4, 60.2, 2.6), ("bl", 155.1, 59.9, 1.9), ("bl", 239.4, 52.9, 2.8), ("bl", 157.7, 53.2, 2.9),
+        ("bl", 236.8, 50.0, 2.7), ("bl", 162.3, 51.0, 2.3), ("bl", 166.8, 45.7, 2.0), ("bl", 229.7, 40.6, 2.5),
+        ("bl", 169.6, 42.1, 1.9), ("bl", 174.6, 35.0, 2.7), ("bl", 216.3, 31.3, 2.4), ("bl", 184.2, 32.6, 2.9),
+        ("bl", 200.0, 56.3, 2.1), ("bl", 200.0, 57.2, 2.6), ("bl", 196.6, 52.5, 2.2), ("bl", 206.9, 46.8, 3.0),
+        ("bl", 210.1, 39.4, 2.3), ("bl", 190.4, 39.3, 2.9), ("bl", 214.0, 34.1, 2.5), ("bl", 187.0, 32.8, 1.8),
+        ("bl", 217.3, 27.1, 2.2), ("bl", 182.4, 27.7, 2.1), ("bl", 347.3, 198.0, 2.7), ("bl", 321.9, 115.9, 1.9),
+        ("bl", 353.6, 189.0, 2.0), ("bl", 329.9, 119.2, 2.6), ("bl", 358.2, 186.2, 2.2), ("bl", 335.6, 120.8, 2.6),
+        ("bl", 342.3, 122.0, 2.1), ("bl", 349.8, 123.9, 2.9), ("bl", 364.7, 164.1, 2.0), ("bl", 334.3, 156.4, 2.1),
+        ("bl", 341.4, 157.7, 2.3), ("bl", 341.7, 150.3, 2.4), ("bl", 349.8, 158.3, 2.2), ("bl", 346.0, 145.6, 2.9),
+        ("bl", 355.4, 160.5, 2.9), ("bl", 348.4, 141.4, 2.2), ("bl", 360.8, 161.7, 2.9), ("bl", 355.2, 135.8, 3.1),
+        ("bl", 367.2, 163.3, 2.4), ("bl", 339.8, 158.8, 1.6), ("bl", 250.5, 339.9, 2.2), ("bl", 253.4, 343.5, 2.8),
+        ("bl", 319.8, 295.2, 2.7), ("bl", 257.7, 344.3, 2.4), ("bl", 321.2, 298.3, 2.1), ("bl", 264.9, 346.2, 2.7),
+        ("bl", 316.8, 304.1, 2.8), ("bl", 270.3, 347.9, 3.0), ("bl", 274.8, 347.5, 3.1), ("bl", 318.1, 319.2, 2.1),
+        ("bl", 286.2, 347.1, 2.0), ("bl", 312.4, 325.7, 1.8), ("bl", 283.9, 315.5, 2.7), ("bl", 282.7, 313.8, 2.4),
+        ("bl", 284.7, 322.0, 2.9), ("bl", 284.5, 328.0, 2.6), ("bl", 295.7, 320.5, 1.9), ("bl", 308.8, 327.9, 2.9),
+        ("bl", 286.9, 347.7, 2.3), ("bl", 313.4, 327.7, 3.1), ("bl", 294.4, 309.5, 1.7), ("bl", 81.6, 290.2, 3.0),
+        ("bl", 80.4, 291.3, 3.0), ("bl", 147.2, 340.6, 2.7), ("bl", 81.7, 298.3, 3.1), ("bl", 144.2, 345.4, 2.3),
+        ("bl", 78.8, 304.7, 2.3), ("bl", 136.9, 347.1, 3.1), ("bl", 81.5, 309.2, 1.8), ("bl", 84.2, 318.1, 2.3),
+        ("bl", 87.7, 327.4, 2.2), ("bl", 114.2, 347.3, 2.4), ("bl", 115.1, 316.9, 2.7), ("bl", 116.7, 314.7, 3.1),
+        ("bl", 109.9, 318.6, 2.2), ("bl", 115.8, 321.4, 3.1), ("bl", 114.0, 329.5, 2.7), ("bl", 97.7, 323.1, 2.6),
+        ("bl", 112.6, 336.8, 2.6), ("bl", 91.4, 327.0, 2.0), ("bl", 86.4, 328.8, 2.8), ("bl", 112.8, 348.1, 2.6),
+        ("bl", 130.8, 326.9, 1.4), ("bl", 96.1, 305.3, 1.3), ("bl", 79.5, 114.5, 2.3), ("bl", 51.6, 198.9, 2.8),
+        ("bl", 49.4, 194.6, 2.6), ("bl", 69.2, 116.6, 2.3), ("bl", 44.0, 189.5, 2.7), ("bl", 56.3, 121.6, 2.6),
+        ("bl", 51.0, 125.8, 2.8), ("bl", 36.1, 165.1, 2.2), ("bl", 58.9, 157.7, 2.0), ("bl", 55.1, 145.7, 2.5),
+        ("bl", 49.1, 158.2, 2.2), ("bl", 43.6, 160.2, 2.0), ("bl", 47.2, 136.2, 2.3), ("bl", 36.0, 160.5, 2.1),
+        ("bl", 42.1, 131.4, 2.8), ("bl", 58.8, 160.9, 1.7), ("bl", 63.2, 140.5, 1.8), ("bl", 57.1, 192.1, 1.4),
+        ("bl", 55.1, 162.2, 1.9), ("bl", 67.5, 149.5, 2.0), ("bn", 265.3, 22.1, 1.4), ("bn", 59.1, 323.6, 1.4),
+        ("bn", 95.7, 354.7, 1.4), ("bn", 11.5, 203.7, 1.4), ("bn", 345.6, 85.9, 1.4), ("bn", 263.1, 30.3, 1.4),
+        ("bn", 132.5, 19.3, 1.4), ("bn", 84.5, 66.1, 1.4), ("bn", 355.8, 316.4, 1.4), ("bn", 337.9, 83.0, 1.4),
+        ("bn", 76.4, 325.4, 1.4), ("bn", 389.4, 223.8, 1.4), ("bn", 344.0, 83.3, 1.4), ("bn", 28.8, 282.6, 1.4),
+    ],
+}
 
-def frange(start, stop, step):
-    n = int(round((stop - start) / step)) + 1
-    return (start + i * step for i in range(n))
 
-
-def angles(i):
-    """Seamless loop with initial 3D tilt so multiple faces show from frame 0."""
-    t = 2 * math.pi * i / FRAMES
-    return 0.58 + t, 0.72 + 2 * t, 0.32
-
-
-def rotate(x, y, z, ca, sa, cb, sb, cc, sc):
-    # X rotation
-    y1 = y * ca - z * sa
-    z1 = y * sa + z * ca
-    # Y rotation
-    x2 = x * cb + z1 * sb
-    z2 = -x * sb + z1 * cb
-    # Z rotation
-    x3 = x2 * cc - y1 * sc
-    y3 = x2 * sc + y1 * cc
-    return x3, y3, z2
-
-
-def render_frame(a, b, c):
-    """One projected frame of the 3D cube, as a list of RAW_ROWS strings."""
-    grid = [[" "] * RAW_COLS for _ in range(RAW_ROWS)]
-    zbuf = [[0.0] * RAW_COLS for _ in range(RAW_ROWS)]
-
-    kx = 49.0
-    ky = kx * (CHAR_W / CHAR_H)
-
-    ca, sa = math.cos(a), math.sin(a)
-    cb, sb = math.cos(b), math.sin(b)
-    cc, sc = math.cos(c), math.sin(c)
-
-    faces = (
-        (lambda u, v: (u, v, L), (0.0, 0.0, 1.0)),
-        (lambda u, v: (u, v, -L), (0.0, 0.0, -1.0)),
-        (lambda u, v: (L, v, u), (1.0, 0.0, 0.0)),
-        (lambda u, v: (-L, v, u), (-1.0, 0.0, 0.0)),
-        (lambda u, v: (u, L, v), (0.0, 1.0, 0.0)),
-        (lambda u, v: (u, -L, v), (0.0, -1.0, 0.0)),
+def blossom_svg(static):
+    palette = {
+        "bd": (ROSE, "0.88"),
+        "bm": (KEY, "0.88"),
+        "bl": (PETAL, "0.88"),
+        "bs": (GOLD, "1"),
+        "bn": (DIM, "0.45"),
+    }
+    axes = (
+        f'<g stroke="{DIM}" stroke-width="1.2" fill="none">'
+        f'<path d="M20 380H380M20 380V20"/>'
+        f'<path d="M20 380v6M110 380v6M200 380v6M290 380v6M380 380v6'
+        f'M14 380h6M14 290h6M14 200h6M14 110h6M14 20h6"/></g>'
     )
+    rings_xml = []
+    for idx, (rname, pts) in enumerate(BLOSSOM_RINGS.items()):
+        circles = []
+        for cls, cx, cy, r in pts:
+            color, op = palette[cls]
+            if cls == "bs" and not static:
+                circles.append(
+                    f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}" fill-opacity="{op}">'
+                    f'<animate attributeName="fill-opacity" values="1;0.62;1" dur="4.2s" '
+                    f'repeatCount="indefinite"/></circle>'
+                )
+            else:
+                circles.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}" fill-opacity="{op}"/>')
+        cls_attr = f' class="ring {rname}"' if not static else ""
+        rings_xml.append(f'<g{cls_attr}>{"".join(circles)}</g>')
 
-    lx, ly, lz = LIGHT
-    coords = list(frange(-L, L, SURF_STEP))
-
-    for pt_fn, (nx, ny, nz) in faces:
-        wnx, wny, wnz = rotate(nx, ny, nz, ca, sa, cb, sb, cc, sc)
-        # Normal points from camera at (0,0,-K2) when dot with face center is positive; skip back faces.
-        cx, cy, cz = rotate(nx * L, ny * L, nz * L, ca, sa, cb, sb, cc, sc)
-        if wnx * cx + wny * cy + wnz * (K2 + cz) >= 0:
-            continue
-        dot = wnx * lx + wny * ly + wnz * lz
-        shade = 0.22 + 0.78 * max(0.0, dot)
-        face_ch = RAMP[min(int(shade * (len(RAMP) - 1)), len(RAMP) - 1)]
-
-        for u in coords:
-            edge_u = abs(u) >= L - 0.11
-            for v in coords:
-                px, py, pz = pt_fn(u, v)
-                rx, ry, rz = rotate(px, py, pz, ca, sa, cb, sb, cc, sc)
-                z = K2 + rz
-                ooz = 1.0 / z
-                xp = int(RAW_COLS / 2 + kx * ooz * rx)
-                yp = int(RAW_ROWS / 2 - ky * ooz * ry)
-                if not (0 <= xp < RAW_COLS and 0 <= yp < RAW_ROWS):
-                    continue
-                is_edge = edge_u or abs(v) >= L - 0.11
-                eff_ooz = ooz + (0.003 if is_edge else 0.0)
-                if eff_ooz > zbuf[yp][xp]:
-                    zbuf[yp][xp] = eff_ooz
-                    grid[yp][xp] = "@" if is_edge else face_ch
-
-    return ["".join(row) for row in grid]
-
-
-def fit_frames(frames):
-    """Crop to the union bounding box across all frames and center in TARGET_ROWS x TARGET_COLS."""
-    top, bottom, left, right = RAW_ROWS, -1, RAW_COLS, -1
-    for lines in frames:
-        for r, line in enumerate(lines):
-            stripped = line.rstrip()
-            if not stripped:
-                continue
-            top, bottom = min(top, r), max(bottom, r)
-            left = min(left, len(line) - len(line.lstrip()))
-            right = max(right, len(stripped) - 1)
-    assert bottom >= top and right >= left, "nothing drawn in any frame"
-
-    used_h = bottom - top + 1
-    used_w = right - left + 1
-    assert used_h <= TARGET_ROWS and used_w <= TARGET_COLS, (
-        f"cube {used_w}x{used_h} exceeds target {TARGET_COLS}x{TARGET_ROWS}"
+    style = "" if static else (
+        "<style>@keyframes bloom{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:none}}"
+        ".ring{transform-origin:200px 200px;animation:bloom .8s cubic-bezier(.34,1.56,.64,1) both}"
+        ".r1{animation-delay:.1s}.r2{animation-delay:.2s}"
+        ".r3{animation-delay:.3s}.r4{animation-delay:.4s}</style>"
     )
-
-    pad_top = (TARGET_ROWS - used_h) // 2
-    pad_left = (TARGET_COLS - used_w) // 2
-    pad_right = TARGET_COLS - used_w - pad_left
-    blank_row = " " * TARGET_COLS
-
-    fitted = []
-    for lines in frames:
-        out = [blank_row] * pad_top
-        for l in lines[top : bottom + 1]:
-            out.append((" " * pad_left) + l[left : right + 1] + (" " * pad_right))
-        while len(out) < TARGET_ROWS:
-            out.append(blank_row)
-        fitted.append(out)
-    return fitted
-
-
-def rows_svg(lines, cols):
-    # textLength pins each row's width so alignment survives any monospace font.
-    return "".join(
-        f'<text x="0" y="{(i + 1) * CHAR_H:.0f}" textLength="{cols * CHAR_W:.0f}" '
-        f'lengthAdjust="spacingAndGlyphs">{esc(line)}</text>'
-        for i, line in enumerate(lines)
+    caption = (
+        f'<text x="194" y="378" fill="{MUTED}" font-family="{MONO}" font-size="11" '
+        f'text-anchor="middle">{esc("fig. 1 — 409 data points, one cherry blossom")}</text>'
     )
-
-
-def frame_svg(index, lines, cols):
-    """A frame group, visible only during its slice of the loop."""
-    lo, hi = index / FRAMES, (index + 1) / FRAMES
-    if index == 0:
-        values, times = "inline;none", f"0;{hi:.5f}"
-    elif index == FRAMES - 1:
-        values, times = "none;inline", f"0;{lo:.5f}"
-    else:
-        values, times = "none;inline;none", f"0;{lo:.5f};{hi:.5f}"
-
-    return (
-        f'<g display="none">{rows_svg(lines, cols)}'
-        f'<animate attributeName="display" calcMode="discrete" values="{values}" '
-        f'keyTimes="{times}" dur="{DURATION}s" repeatCount="indefinite"/></g>'
-    )
+    plot = f'<g transform="translate(24,16) scale(0.85)">{axes}{"".join(rings_xml)}</g>{caption}'
+    return style, plot
 
 
 def main():
     static = os.environ.get("STATIC") == "1"
-    frames = fit_frames([render_frame(*angles(i)) for i in range(FRAMES)])
-    rows, cols = len(frames[0]), len(frames[0][0])
-    logo_w, height = cols * CHAR_W + 2 * PAD, rows * CHAR_H + 2 * PAD
-    assert logo_w + CARD_W == WIDTH, f"logo {logo_w:.0f} + card {CARD_W} != {WIDTH}"
-
-    style, card_body = card(static, height)
-    logo = (
-        rows_svg(frames[0], cols)
-        if static
-        else "".join(frame_svg(i, f, cols) for i, f in enumerate(frames))
-    )
+    assert PLOT_W + CARD_W == WIDTH, f"plot {PLOT_W} + card {CARD_W} != {WIDTH}"
+    b_style, b_body = blossom_svg(static)
+    c_style, c_body = card(static, HEIGHT)
+    total_pts = sum(len(v) for v in BLOSSOM_RINGS.values())
     write(
         OUT,
         svg(
             WIDTH,
-            height,
-            f'{style}<g transform="translate({PAD:.0f},{PAD:.0f})" font-size="{CHAR_H * 0.82:.1f}" '
-            f'fill="{FG}">{logo}</g>'
-            f'<g transform="translate({logo_w:.0f},0)">{card_body}</g>',
+            HEIGHT,
+            f'{b_style}{c_style}{b_body}<g transform="translate({PLOT_W},0)">{c_body}</g>',
         ),
-        f", {1 if static else FRAMES} frame(s), cube {cols}x{rows} chars, {WIDTH}x{height:.0f} px"
+        f", {total_pts} points across {len(BLOSSOM_RINGS)} rings, {WIDTH}x{HEIGHT} px"
         f"{' (static)' if static else ''}",
     )
 
 
 def demo():
-    """Sanity check: loop is seamless, cube fits cleanly, and card dimensions match."""
-    raw = [render_frame(*angles(i)) for i in range(FRAMES)]
-    a0, b0, c0 = angles(0)
-    af, bf, cf = angles(FRAMES)
-    assert math.isclose(math.cos(a0), math.cos(af)) and math.isclose(math.sin(a0), math.sin(af))
-    assert math.isclose(math.cos(b0), math.cos(bf)) and math.isclose(math.sin(b0), math.sin(bf))
-    assert math.isclose(c0, cf)
-    assert all(len(f) == RAW_ROWS and all(len(l) == RAW_COLS for l in f) for f in raw)
-
-    frames = fit_frames(raw)
-    rows, cols = len(frames[0]), len(frames[0][0])
-    assert rows == TARGET_ROWS and cols == TARGET_COLS
-    logo_w, height = cols * CHAR_W + 2 * PAD, rows * CHAR_H + 2 * PAD
-    assert logo_w + CARD_W == WIDTH
-    card(False, height)
-
-    filled = sum(c != " " for l in frames[0] for c in l)
-    assert 100 < filled < rows * cols * 0.75, f"implausible fill: {filled}"
-    print("\n".join(frames[0]))
-    print(f"ok: {cols}x{rows}, {filled} glyphs in frame 0, {WIDTH}x{height:.0f} px")
+    """Sanity check: 409 points, 5 rings, dimensions and info card assertions."""
+    total = sum(len(v) for v in BLOSSOM_RINGS.values())
+    assert total == 409, f"expected 409 points, got {total}"
+    assert list(BLOSSOM_RINGS.keys()) == ["r0", "r1", "r2", "r3", "r4"]
+    assert PLOT_W + CARD_W == WIDTH
+    card(False, HEIGHT)
+    b_style, b_body = blossom_svg(False)
+    assert "fig. 1" in b_body and "<circle" in b_body and "@keyframes bloom" in b_style
+    print(f"ok: {total} blossom points across 5 rings, {WIDTH}x{HEIGHT} px")
 
 
 if __name__ == "__main__":
