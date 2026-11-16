@@ -81,7 +81,7 @@ def main():
         f'font-weight="700">{esc(TITLE)}</text>'
         f'<g transform="translate(0,{TITLE_H})">{network}</g>'
         f'<text x="430" y="296" fill="{MUTED}" font-family="{MONO}" font-size="11" '
-        f'text-anchor="middle">{esc("fig. 3 — voice in, local LLM routing + second-brain retrieval, spoken reply out")}</text>'
+        f'text-anchor="middle">{esc("fig. 5 — voice in, local LLM routing + second-brain retrieval, spoken reply out")}</text>'
     )
     write(OUT, svg(WIDTH, HEIGHT, body))
 

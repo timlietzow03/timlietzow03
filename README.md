@@ -2,12 +2,17 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./img/header-dark.svg" />
-  <img src="./img/header-light.svg" width="860" alt="createtim · Tim Lietzow: Data science, demand forecasting and custom web design from Buxtehude, paired with the Hase & Igel demand forecast chart." />
+  <img src="./img/header-light.svg" width="860" alt="createtim · Tim Lietzow: Data science, demand forecasting and custom web design from Buxtehude, with drifting Sakura petals and the Hase & Igel demand forecast chart." />
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./img/neofetch-dark.svg" />
   <img src="./img/neofetch-light.svg" width="860" alt="409-point cherry blossom scatter plot next to Tim Lietzow's skills, software stack, path and languages." />
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./img/linienplan-dark.svg" />
+  <img src="./img/linienplan-light.svg" width="860" alt="Transit map of Tim Lietzow's path (Dorsten, Gahlen, Buxtehude, Apprenticeship, B.Sc. CS, AI team, Taiwan) branching to Data & AI and Web & Software projects." />
 </picture>
 
 <picture>
@@ -25,7 +30,12 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./img/projects-caption-dark.svg" />
-  <img src="./img/projects-caption-light.svg" width="860" alt="fig. 2 — live status of projects, refreshed hourly." />
+  <img src="./img/projects-caption-light.svg" width="860" alt="fig. 3 — live status of projects, refreshed hourly." />
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./img/neural-dark.svg" />
+  <img src="./img/neural-light.svg" width="860" alt="Animated 4-layer neural network forward pass: signals propagating from 4 inputs through 6 and 5 hidden neurons to 3 outputs." />
 </picture>
 
 <picture>
